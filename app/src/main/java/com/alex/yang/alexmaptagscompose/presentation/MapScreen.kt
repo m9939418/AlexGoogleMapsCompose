@@ -37,6 +37,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.alex.yang.alexmaptagscompose.R
 import com.alex.yang.alexmaptagscompose.core.hasLocationPermission
+import com.alex.yang.alexmaptagscompose.core.isLocationEnabled
 import com.alex.yang.alexmaptagscompose.domain.model.Place
 import com.alex.yang.alexmaptagscompose.domain.model.toLatLng
 import com.alex.yang.alexmaptagscompose.presentation.component.AddMarkerDialog
@@ -183,7 +184,15 @@ fun MapScreen(
                                     return@IconButton
                                 }
 
-                                // 2. 取得目前定位
+                                // 2. 檢查是否啟用系統定位
+                                if (!context.isLocationEnabled()) {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("請先在系統設定中開啟「定位服務」")
+                                    }
+                                    return@IconButton
+                                }
+
+                                // 3. 取得目前定位
                                 coroutineScope.launch {
                                     val place = getCurrentLocation()
 
