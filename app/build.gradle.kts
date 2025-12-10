@@ -99,7 +99,8 @@ dependencies {
     implementation(libs.coil)
     implementation(libs.coil.compose)
 
-    // Google Maps + Maps Compose
+    // Google Maps | Maps Compose | Location Services
     implementation("com.google.android.gms:play-services-maps:19.2.0")
     implementation("com.google.maps.android:maps-compose:6.12.2")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 }

@@ -24,7 +24,9 @@ class MainActivity : ComponentActivity() {
 
                 MapScreen(
                     state = state,
-                    onPlaceSelected = viewModel::onPlaceSelected
+                    onPlaceSelected = viewModel::onPlaceSelected,
+                    getCurrentLocation = viewModel::getCurrentLocation,
+                    onAddUserMarker = viewModel::addUserMarker
                 )
             }
         }

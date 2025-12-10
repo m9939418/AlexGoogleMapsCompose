@@ -12,7 +12,9 @@ data class Place(
     val name: String,
     val latitude: Double,
     val longitude: Double,
-    val description: String
+    val description: String,
+    val accuracyMeters: Float = 0f,
+    val timeMillis: Long = 0L
 )
 
 fun Place.toLatLng(): LatLng = LatLng(latitude, longitude)
