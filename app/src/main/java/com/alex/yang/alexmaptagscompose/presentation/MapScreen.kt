@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
@@ -24,11 +25,13 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,6 +44,7 @@ import com.alex.yang.alexmaptagscompose.core.isLocationEnabled
 import com.alex.yang.alexmaptagscompose.domain.model.Place
 import com.alex.yang.alexmaptagscompose.domain.model.toLatLng
 import com.alex.yang.alexmaptagscompose.presentation.component.AddMarkerDialog
+import com.alex.yang.alexmaptagscompose.presentation.component.PlaceInfoWindow
 import com.alex.yang.alexmaptagscompose.ui.theme.AlexMapTagsComposeTheme
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -54,6 +58,7 @@ import com.google.maps.android.compose.MapType
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -113,13 +118,22 @@ fun MapScreen(
     }
     var hasLocationPermission by remember { mutableStateOf(context.hasLocationPermission()) }
 
+    var selectedPlace by remember { mutableStateOf<Place?>(null) }
+    // 監聽地圖移動，當移動時關閉 overlay
+    LaunchedEffect(cameraPositionState) {
+        snapshotFlow { cameraPositionState.isMoving }
+            .collect { isMoving ->
+                if (isMoving) selectedPlace = null
+            }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // 地圖元件
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
-            properties = properties
+            properties = properties,
+            onMapClick = { selectedPlace = null }
         ) {
             // 標記地點
             state.places.forEach { place ->
@@ -129,8 +143,21 @@ fun MapScreen(
                     title = place.name,
                     snippet = place.description,
                     onClick = {
+
+                        // 把鏡頭移回預設中心
+                        // 在 Marker 點擊並 zoom 完成後顯示
+                        coroutineScope.launch {
+                            cameraPositionState.animate(
+                                CameraUpdateFactory.newLatLngZoom(place.toLatLng(), 16f),
+                                durationMs = 500
+                            )
+
+                            delay(100)
+                            selectedPlace = place
+                        }
+
                         onPlaceSelected(place.id)
-                        false   // 回傳 false 讓預設行為（顯示 InfoWindow）繼續
+                        true  // 回傳 true 阻止預設行為（不顯示 InfoWindow）
                     }
                 )
             }
@@ -143,9 +170,34 @@ fun MapScreen(
                     title = place.name,
                     snippet = place.description,
                     onClick = {
+                        // 把鏡頭移回預設中心
+                        // 在 Marker 點擊並 zoom 完成後顯示
+                        coroutineScope.launch {
+                            cameraPositionState.animate(
+                                CameraUpdateFactory.newLatLngZoom(place.toLatLng(), 16f),
+                                durationMs = 500
+                            )
+
+                            delay(100)
+                            selectedPlace = place
+                        }
+
                         onPlaceSelected(place.id)
-                        false
+                        true
                     }
+                )
+            }
+        }
+
+        // 客製化 InfoWindow
+        selectedPlace?.let { place ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                PlaceInfoWindow(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .offset(y = (-110).dp),
+                    place = place,
+                    onDismiss = { selectedPlace = null }
                 )
             }
         }
@@ -172,6 +224,7 @@ fun MapScreen(
                                     )
                                 }
                             }
+
                             Icons.Default.LocationOn -> {
                                 // 1. 先檢查權限
                                 if (!hasLocationPermission) {
@@ -258,8 +311,11 @@ fun MapScreen(
                 onConfirm = { name, description ->
                     val base = pendingLocation.value
                     if (base != null && name.isNotBlank()) {
+                        val newPlace = base.copy(name = name, description = description)
                         onAddUserMarker(base, name, description)
+                        selectedPlace = newPlace    // 顯示 InfoWindow
                     }
+
                     showAddMarkerDialog.value = false
                     pendingLocation.value = null
                 },
